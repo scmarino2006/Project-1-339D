@@ -1,0 +1,286 @@
+---
+title: "Project #1: On returns and portfolios"
+author: "Sam Marino, Katherine Kuster, Nikhil Bharadwaj, Yonathan Kassa, Amer Yahya"
+date: "`r Sys.Date()`"
+output: pdf_document
+urlcolor: blue
+---
+<!-- The author of this template is Dr. Gordan Zitkovic.-->
+<!-- The code chunk below contains some settings that will  -->
+<!-- make your R code look better in the output pdf file.  -->
+<!-- If you are curious about what each option below does, -->
+<!-- go to https://yihui.org/knitr/options/ -->
+<!-- If not, feel free to disregard everything ...  -->
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  fig.align="center",
+  fig.pos="t",
+  strip.white = TRUE
+)
+```
+<!-- ... down to here. -->
+
+## Problem #1 **(35 points)**
+Go to [Google historical data](https://finance.yahoo.com/quote/GOOG/history/)
+
+Then, download the historical stock prices of *Alphabet, Inc.* for the last 252 (or so) trading days, i.e., for the last year.
+
+
+```{r}
+library(readxl)
+Google_Stock_Prices <- read.csv("/Users/sammarino/Downloads/goog.csv")
+summary(Google_Stock_Prices)
+```
+
+**(5 points)** Draw the time-plot of the evolution of the closing stock price (not the adjusted). You do **not** need to put the calendar days on the horizontal axis, but you **do** need to label your axes and give your time-plot a title indicating the dates.  
+
+```{r}
+close_price <- Google_Stock_Prices$Close
+date_price <- as.Date(Google_Stock_Prices$Date, format = "%m/%d/%y")
+plot(type = "l", x = date_price, y = close_price, xlab = "Date", ylab = "Close Price", 
+     lwd = 2, main = "Closing Price vs Time of GOOGL")
+```
+
+The **simple daily return** of the stock over a day indexed by $t$ is defined as 
+```{r}
+n<-length(close_price)
+returns_simple <- numeric(n-1)
+for(i in 1:(n-1)){
+  returns_simple[i] <- (close_price[i+1]-close_price[i])/close_price[i]
+}
+hist(returns_simple, xlab = "Daily Return in %", ylab = "Frequency", 
+     main = "Historgram of Daily Returns of GOOGL from 09/19/2025 - 09/21/2025")
+
+summary(returns_simple)
+```
+**(5 points)** Construct the vector of simple daily returns over the last year. Provide a visualization of the returns. What can you say about the characteristics of the distribution based on the above plot?
+```{r}
+n<-length(close_price)
+returns_simple <- numeric(n-1)
+for(i in 1:(n-1)){
+  returns_simple[i] <- (close_price[i+1]-close_price[i])/close_price[i]
+}
+hist(returns_simple, xlab = "Daily Return in %", ylab = "Frequency", 
+     main = "Historgram of Daily Returns of GOOGL from 09/19/2025 - 09/21/2025")
+RS_summary<-summary(returns_simple)
+RS_summary
+```
+**(10 points)** Fit the normal distribution to the above returns. Superimpose the appropriate graph for your model onto the appropriate graph of the data to convince your reader that your model is valid.
+```{r}
+mean_returns = mean(returns_simple)
+sd_returns = sd(returns_simple)
+Normalized_Returns <- dnorm(returns_simple, mean = mean_returns, sd=sd_returns)
+hist(returns_simple, probability = TRUE, xlab = "Daily Return", 
+     ylab = "Density", main = "Normalized Simple Daily Returns")
+
+x_vals <- seq(min(returns_simple), max(returns_simple), length.out = 300)
+lines( x_vals, dnorm(x_vals, mean = mean_returns, sd = sd_returns), 
+       col = "peru", lwd = 2)
+
+
+```
+**(15 points)** You will have to install a package to solve this part of your project. First, run the following in your console: 
+
+from the first chunk in this document. 
+
+Next, you should learn more about the **Laplace (double exponential)** distribution. This is easily done by visiting: 
+
+[Wikipedia: The Laplace distribution](https://en.wikipedia.org/wiki/Laplace_distribution)
+
+Now, you are equipped to fit the Laplace (double exponential) distribution to the above returns. To learn about the parametrization of the Laplace distribution in `R`, type `?ddexp` into the console in RStudio.
+
+After you have completed the fit, superimpose the appropriate graph for your model onto the appropriate graph of the data.
+```{r}
+library(nimble)
+location_hat <- median(returns_simple)
+scale_hat <- mean(abs(returns_simple - location_hat))
+hist(returns_simple, breaks = 20, freq = FALSE, xlab = "Daily Return", 
+     ylab = "Density", main = "Google Returns With Laplace Distribution")
+curve(ddexp(x, location = location_hat, scale = scale_hat), add = TRUE, 
+      col = "peru", lwd = 2)
+```
+
+## Problem #2 **(45 points)**
+Your initial wealth is exactly \$100. You are allowed to invest in
+shares of a particular stock. You are also allowed to both lend and
+borrow at the continuously compounded risk-free interest rate of
+0.05. Keeping your money uninvested is \textbf{not allowed}.
+
+You can rebalance your portfolio every morning, once you have observed
+the opening stock price. This means that you can change the number of
+shares you own (if you decide to do so) and accordingly adapt your
+risk-free investment.
+
+You proceed to use a "rule" according to which you will be
+rebalancing your portfolio. Here are the three rules you are going to use:
+
+### (10 points) 
+Always keep exactly \$100 in the stock and the rest of the wealth invested at the risk-free rate. If needed, borrow at the continuously compounded 
+risk-free interest rate.
+#Setup
+
+```{r}
+stock_prices <- c(100, 80, 64, 80, 64, 80, 100, 80, 64, 80, 100)
+rf_rate <- 0.05
+dt <- 1/365
+shares <- numeric(11)
+wealth <- numeric(11)
+stock_wealth <- numeric(11)
+total_wealth <- numeric(11)
+shares[1] <- 100 / stock_prices[1]
+wealth[1] <- 100 - 100
+stock_wealth[1] <- shares[1] * stock_prices[1]
+total_wealth[1] <- stock_wealth[1] + wealth[1]
+
+for (i in 2:11) {
+  interest_growth_total <- wealth[i - 1] * exp(rf_rate * dt)
+  share_total <- shares[i - 1] * stock_prices[i]
+  wealth_before <- share_total + interest_growth_total
+  stock_wealth[i] <- 100
+  shares[i] <- 100 / stock_prices[i]
+  wealth[i] <- wealth_before - 100
+  total_wealth[i] <- wealth_before
+}
+
+print(data.frame(Day = 0:10, Shares = round(shares, 4), 
+Risk_Free_Wealth = round(wealth, 2), Stock_Wealth = round(stock_wealth, 2), 
+Total_Wealth = round(total_wealth, 2)
+))
+```
+
+
+
+
+### (15 points)
+Always keep exactly one half of the wealth invested in the stock and the rest of the wealth invested at the risk-free rate. If needed, borrow at the continuously compounded risk-free interest rate.
+
+```{r}
+shares2 <- numeric(11)
+wealth2 <- numeric(11)
+stock_wealth2 <- numeric(11)
+total_wealth2 <- numeric(11)
+stock_wealth2[1] <- 100 / 2
+shares2[1] <- stock_wealth2[1] / stock_prices[1]
+wealth2[1] <- 100 - stock_wealth2[1]
+total_wealth2[1] <- stock_wealth2[1] + wealth2[1]
+
+for (i in 2:11) {
+  interest_growth_total <- wealth2[i - 1] * exp(rf_rate * dt)
+  share_total <- shares2[i - 1] * stock_prices[i]
+  wealth_before <- share_total + interest_growth_total
+  stock_wealth2[i] <- wealth_before / 2
+  shares2[i] <- stock_wealth2[i] / stock_prices[i]
+  wealth2[i] <- wealth_before - stock_wealth2[i]
+  total_wealth2[i] <- wealth_before
+}
+
+print(data.frame(Day = 0:10, Shares = round(shares2, 4),
+  Risk_Free_Wealth = round(wealth2, 2),Stock_Wealth = round(stock_wealth2, 2),
+  Total_Wealth = round(total_wealth2, 2)
+))
+```
+
+
+### (20 points)
+Start with all the funds in the stock. The following days, proceed as follows: If the stock price drops overnight (regardless of the extent of the drop), sell half of the stock investment. If the stock price rises overnight (regardless of the extent of the increase), double the amount of the stock investment. If the stock price does not change, do nothing. In all three cases, the rest of the wealth is to be invested at the risk-free rate (if needed, borrow at the continuously compounded risk-free interest rate).
+```{r}
+shares3 <- numeric(11)
+wealth3 <- numeric(11)
+stock_wealth3 <- numeric(11)
+total_wealth3 <- numeric(11)
+stock_wealth3[1] <- 100
+shares3[1] <- stock_wealth3[1] / stock_prices[1]
+wealth3[1] <- 100 - stock_wealth3[1]
+total_wealth3[1] <- stock_wealth3[1] + wealth3[1]
+
+for (i in 2:11) {
+  interest_growth_total <- wealth3[i - 1] * exp(rf_rate * dt)
+  share_total <- shares3[i - 1] * stock_prices[i]
+  wealth_before <- share_total + interest_growth_total
+  if (stock_prices[i] < stock_prices[i - 1]) {
+    stock_wealth3[i] <- 0.5 * share_total
+  } else if (stock_prices[i] > stock_prices[i - 1]) {
+    stock_wealth3[i] <- 2.0 * share_total
+  } else {
+    stock_wealth3[i] <- share_total
+  }
+  
+  shares3[i] <- stock_wealth3[i] / stock_prices[i]
+  wealth3[i] <- wealth_before - stock_wealth3[i]
+  total_wealth3[i] <- wealth_before
+}
+
+
+print(data.frame(Day = 0:10,Shares = round(shares3, 4),
+  Risk_Free_Wealth = round(wealth3, 2),Stock_Wealth = round(stock_wealth3, 2),
+  Total_Wealth = round(total_wealth3, 2)
+))
+```
+
+
+\medskip
+
+Over the following 10 days, you observe the following stock prices for a non-dividend-paying stock:
+
+\medskip
+
+\begin{tabular}{|c|c|c|c|c|c|c|c|c|c|c|c|}
+\hline
+{\bf Day} & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 \\
+\hline
+{\bf Stock price} &100 & 80 & 64 & 80 & 64 & 80 & 100 & 80 & 64 & 80 & 100 \\
+\hline
+\end{tabular}
+
+\medskip
+
+As the time passes you follow investment rules above to rebalance your portfolio. Complete the following table describing your portfolio \textbf{just before and just after} the rebalancing is done. 
+Even more precisely, for the $10$ days, both for "before" and "after" the rebalancing, print out:
+
+* the number of shares of stock in the portfolio, 
+* the balance of the risk-free investment, 
+* the wealth in the stock, 
+* the total wealth. 
+
+\medskip
+
+## Problem #3 (20 points)
+### (10 points) 
+Repeat the last part of the above problem with **your own investment rule** based on *technical analysis*, i.e., the study of past prices. Your rule must not be arbitrary and it must have some financial logic behind it. Moreover, it must not be a simple reversal or multiple of the rule used in the previous problem. 
+
+```{r}
+shares4 <- numeric(11)
+wealth4 <- numeric(11)
+stock_wealth4 <- numeric(11)
+total_wealth4 <- numeric(11)
+stock_wealth4[1] <- 0
+shares4[1] <- stock_wealth4[1] / stock_prices[1]
+wealth4[1] <- 100 - stock_wealth4[1]
+total_wealth4[1] <- stock_wealth4[1] + wealth4[1]
+for (i in 2:11) {
+  interest_growth_total <- wealth4[i - 1] * exp(rf_rate * dt)
+  share_total <- shares4[i - 1] * stock_prices[i]
+  wealth_before <- share_total + interest_growth_total
+  if (i < 3) {
+    stock_wealth4[i] = 0
+  } else if (stock_prices[i] < min(stock_prices[(i - 2):(i - 1)])) {
+    stock_wealth4[i] = wealth_before
+  } else if (stock_prices[i] > max(stock_prices[(i - 2):(i - 1)])) {
+    stock_wealth4[i] = 0
+  } else {
+    stock_wealth4[i] = share_total
+  }
+  shares4[i] = stock_wealth4[i] / stock_prices[i]
+  wealth4[i] = wealth_before - stock_wealth4[i]
+  total_wealth4[i] = wealth_before
+}
+print(data.frame(Day = 0:10,Shares = round(shares4, 4),
+  Risk_Free_Wealth = round(wealth4, 2),Stock_Wealth = round(stock_wealth4, 2),
+  Total_Wealth = round(total_wealth4, 2)
+))
+```
+
+### (10 points) 
+**Explain** why you designed the rule the way you did and why you believe it would prove to be a successful investment strategy. You must provide at least one credible reference indicating that the rule is used in practice. 
+We designed this rule similar to a momentum trading approach to rebalancing our investment portfolio. Within this approach we look to see if the stock prices have fallen over the past two days, and if so we will buy the stock, with the idea that there will be a future upward trajectory. If the stock prices have increased over the past two days then we sell the stock because we are basing our rule off the assumption that the stock will soon trend back to an average. This is a well studied concept which has been discussed in AQR Funds and in published economic works from the 1990's. 
