@@ -1,0 +1,212 @@
+---
+title: 'Project #2'
+author: "Sam Marino, Amer Yahya, Katherine Kuster, Yonathan Kassa, Nikhil"
+date: "`10/19/2026`"
+output:
+  html_document:
+    df_print: paged
+urlcolor: blue
+---
+<!-- The author of this template is Dr. Gordan Zitkovic.-->
+<!-- The code chunk below contains some settings that will  -->
+<!-- make your R code look better in the output pdf file.  -->
+<!-- If you are curious about what each option below does, -->
+<!-- go to https://yihui.org/knitr/options/ -->
+<!-- If not, feel free to disregard everything ...  -->
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  fig.align="center",
+  fig.pos="t",
+  strip.white = TRUE
+)
+```
+<!-- ... down to here. -->
+
+---
+
+# Forwards and futures. 
+
+## Problem #1 (25 points)
+### The Dow index and Dow futures
+Please, in no particular order read the Wikipedia entry about *futures contracts* and listen to the fun and educational episode of *Planet money* about credit risk in cafeteria futures. Both are linked below:
+
+[Wikipedia](https://en.wikipedia.org/wiki/Futures_contract): Futures
+
+[Planet money](https://www.npr.org/sections/money/2016/01/06/462149561/episode-15-delicious-cake-futures): Delicious cake futures
+
+**(10 points)** Provide the definitions of the forward contract and the futures contract. Then, highlight at least two similarities and at least two differences between the two. 
+Forward Contract: A customized, private over-the-counter (OTC) agreement between two parties to buy or sell an underlying asset at a specified future date at a predetermined price agreed upon today. Because they are private contracts, they carry counterparty credit risk (as  illustrated in the Planet Money cafeteria futures episode regarding delivery and default risk).
+
+**Futures Contract:** A standardized, legally binding agreement to buy or sell a predetermined quantity of an underlying asset at a specified price on a specific future delivery date. Futures are traded on organized exchanges and backed by a central clearinghouse, which eliminates counterparty risk through daily mark-to-market settlements and margin accounts.
+
+**Similarities:** They are both similar in the obligation aspect. Both are derivative contracts that obligate the buyer to purchase (and the seller to deliver/sell) the underlying asset at a future date at a fixed price.
+
+They are also both primarily utilized by market participants for hedging existing price risks or for speculation.
+
+**Differences:** Their Market Structure is different. Forward contracts are completely customized and traded over-the-counter (OTC) between private parties, whereas futures contracts are highly standardized in terms of contract size, expiration dates, and delivery specifications, and are traded on public exchanges.
+
+Their Counterparty Risk & Settlement is also different. For example, forward contracts carry direct counterparty credit risk (if the counterparty defaults at maturity). On the other hand, futures contracts eliminate individual counterparty risk because the exchange's clearinghouse acts as the intermediary, utilizing daily mark-to-market (daily settlement of gains and losses) and margin requirements.
+
+The files "dow.csv" and "dow-futures.csv" contain index prices and the futures prices for delivery on a particular date in the future. 
+
+
+**(5 points)**
+Import the data into a data frame (or two?). Draw the time-plot of the evolution of the closing index prices and the futures prices on the same coordinate system. You do **not** need to put the calendar days on the horizontal axis, but you **do** need to label your axes and give your time-plot a title indicating the dates. Make sure that you plot the two trajectories in **different** colors indicating in the text which color corresponds to which company. 
+
+Here is a link to a straightforward tutorial which will help you accomplish the above neatly: 
+
+[Timeline plotting](https://statisticsglobe.com/draw-multiple-time-series-in-same-plot-in-r) 
+
+```{r}
+library(readr)
+dow <- read_csv("/Users/sammarino/Downloads/dow.csv")
+dow.futures <- read_csv("/Users/sammarino/Downloads/dow-futures.csv")
+dow$Date<-as.Date(dow$Date)
+dow.futures$Date <- as.Date(dow.futures$Date)
+plot(dow$Date,dow$Close, type = "l", lwd = 2, col = "peru", xlab = "Date", ylab = "Price", main = "Dow Jones Index vs. Dow Futures Prices\n(May 9, 2022 – February 14, 2023)")
+lines(dow.futures$Date,dow.futures$Close, type = "l", col = "blue", lwd = 2)
+legend("bottomleft", legend = c("Dow Index (Spot) - Burnt Orange", "Dow Futures - Blue"), col = c("peru", "blue"), lwd = 2)
+```
+
+**(10 points)**
+What do you notice when you compare the timeplots? Which of the **formulae** for calculating futures prices you encountered on the Wikipedia entry come in handy?
+
+We noticed a few things when looking at the timeplots. Firstly we can see
+high Correlation / tracking between the two lines. The two curves move almost identically in tandem throughout the entire time horizon (May 2022 to February 2023), reflecting strong co-movement in response to macroeconomic news and market conditions.
+
+Another thing we can see is the Basis/Spread: The futures price trajectory generally stays very close to the spot index price, exhibiting a slight premium or discount (the basis) depending on prevailing interest rates and dividend yields over the life of the contract.
+
+The primary formula from the Wikipedia entry on futures contracts that explains this relationship is the Cost-of-Carry Model (or the forward/futures pricing formula for stock indices):$$F_0 = S_0 e^{(r - q)T}$$
+Where: $F_0$ is the futures price today.
+$S_0$ is the spot price of the underlying index (dow.csv).
+$r$ is the risk-free interest rate.
+$q$ is the continuous dividend yield of the index constituents.
+$T$ is the time to maturity of the futures contract.
+This formula explains why futures and spot prices track each other so closely, as any persistent divergence beyond the cost of carry (interest costs minus dividend earnings) would trigger arbitrage opportunities (cash-and-carry or reverse cash-and-carry trades), pulling the prices back into theoretical alignment.
+
+
+# Call price properties
+## Problem #2 (25 points)
+### Apple calls
+The file "apple-calls.csv" contains call prices observed on February 14th for European call options on the stocks of Apple Inc with expiry on May 19th and with varying strike prices. 
+
+**(5 points)**
+Import the data into a data frame. Create a line plot of the mid price (defined as the midpoint between the bid and the ask price) as it depends on the strike. 
+```{r}
+appd = read.csv("apple-calls.csv")
+midprice = (appd$Bid + appd$Ask) / 2
+appd[12] = midprice
+plot(type = "l", x = appd$Strike, y = midprice, xlab = "Strike", ylab = "Mid Price", lwd = 2, main = "Mid Price vs Strike of AAPL")
+
+```
+
+
+**(5 points)**
+What do you notice about the monotonicity and convexity of the above curve? 
+
+The curve is strictly monotonically decreasing and convex.
+
+**(15 points)**
+**Prove** that the same conclusions regarding the monotonicity and convexity of the call prices with respect to the strike must hold in general **under the no arbitrage assumption**. 
+
+Let C(K) be the call price for a strike K call option.
+
+1. Prove C(K) Decreasing with K
+
+Suppose $K_1$ < $K_2$. Then, for every value of S(T), S(T) - $K_1$ ≥ S(T) - $K_2$
+Now assume to the contrary that C($K_1$) < C($K_2$). 
+Then, you can buy the $K_1$ call and sell the $K_2$ call, so your time 0 cash flow will be C($K_2$) - C$K_1$) > 0, a net inflow
+On the exercise date, the payoff is $(S(T) - K_1)_+ - (S(T) - K_2)_+$ which is positive in every state of the world. 
+This is an arbitrage!
+Therefore, $C(K_1) ≥ C(K_2)$, but in practice, S(T) typically has a positive probability of being greater than the strike price making the monotonicity strict.
+
+2. Prove convexity of C(K) with K
+
+Suppose $K_1 < K_2 < K_3$ such that $K_2 =𝝀K_1 + (1-𝝀)K_3$ 
+which gives you 𝝀= $(K_3-K_2) / (K_3-K_1)$ where 0 < 𝝀 < 1
+Now assume a portfolio that longs 𝝀 calls at $K_1$, (1-𝝀) calls at $K_3$, and shorts 1 call at $K_2$
+The payoff = $λ(S(T) − K_1)_+ + (1−λ)(S(T) − K_3)_+ − (S(T) − K_2)_+$
+
+Unpacking each region:
+If $S(T) < K_1$, payoff = 0
+If $K_1 < S(T) < K_2$ then payoff = $λ(S(T) - K_1)$
+If $K_2 < S(T) < K_3$ then payoff = $λ(S(T) - K_1) - (S(T)-K_2) = (1-λ)(K_3 - S(T)) ≥ 0$ 
+Finally, If $S(T) > K_3$ then payoff $K_2 − λK_1 − (1−λ)K_3$ = 0
+
+Since payoff ≥ 0 in every state, the portfolio's cost must also be ≥ 0 to meet the no-arbitrage condition.
+
+Therefore, $λC(K_1) + (1−λ)C(K_3) − C(K_2)$ ≥ 0
+which is the definition of convex.
+
+# Put-call parity
+
+## Problem #3 (25 points)
+**(5 points)**
+Using put-call parity, find the formula for the interest rate if all other ingredients are known. 
+
+$V_C(0) - V_P(0) = S_o - Ke^{-rt}$
+$-(V_C(0) - V_P(0) - S_o)/K= e^{-rt}$
+$\frac{ln((k)/(-(V_C(0) - V_P(0) - S_o))}{t} = r$
+
+
+
+**(5 points)** 
+Based on the above, what can you say about the interest rates $r$ you expect to obtain for varying values of the strike price? Bear in mind the **standing assumptions** we made in the beginning of the semester. 
+
+Keeping with the standing assumptions, $r$ is directly related to the market and its value is not determined or changed given a specific strike price. If all else stays the same, an increasing strike price will lead to a lower value of $r$ and vise versa, although their values are not inherently based on causation. 
+
+**(10 points)**
+Based on the data set "apple-parity.csv", calculate the continuously compounded, risk-free interest rate for all the strike prices given. Be careful about how you use the *bid* and *ask/offer* prices of the options. Set $T=0.25$. Plot the values of the interest rate you obtain as they depend on the strike prices. 
+
+
+```{r}
+apple_parity <- read.csv("apple-parity.csv")
+t=.25
+s_o <- apple_parity$Stock
+k <- apple_parity$Strike
+
+#r = ln(k/(-Vc(0) + Vp(0) + s_o)/t
+
+r1 <- log(k/(-apple_parity$BidCall + apple_parity$AskPut + s_o))/t
+r2 <- log(k/(-apple_parity$AskCall + apple_parity$BidPut + s_o))/t
+
+
+plot(k, r2, pch = 16, type = "b", col = "red",
+     xlab = "Strike Price (k)", 
+     ylab = "Implied Interest Rate (r)",
+     main = "Apple Interest Rates Associated to Strike Prices")
+lines(k, r1, type = "b", pch = 16, col = "blue")
+
+legend("bottomleft", pch = 16, lty = 1, col = c("red", "blue"),
+       legend = c("interest rate (high)", "interest rate (low)"))
+
+```
+
+
+**(5 points)**
+What do you notice about the above plot? Does it or does it not agree with your prediction from the second question in the problem? Substantiate your answer. 
+
+The plot above does not agree with our prediction entirely. Since we determined that $r$ is a market related variable and not dependent upon strike price (they are simply correlated but do not have a causal relationship), in theory $r$ should be a relatively consistent value. Looking at the above plot, $r$ is relatively constant for strike prices until we get to about $k = 160$ in which the interest rate makes a significant drop in value. Looking at the high interest rate where we will sell the call and buy the put, the interest rate for low strike prices hover at around 3.5%-4% before dropping below 2.5% as the strike price increases. The low interest rate follows a similar pattern with constant $r$ hovering around 2.7%-3.5% until we get to higher strike prices where it drops to 2% and below.
+
+## Problem #4 (25 points)
+To what do you attribute the discrepancies you observed in the previous problem? Think about it a bit and note your ideas. Then, consult the paper by *Brenner* and *Galai* uploaded into Canvas (under *Files* in the folder *articles*). Provide at least **four** substantiated reasons. 
+
+*Note that this question is worth a quarter of your score for this project! A few lines of your musings will give you hardly any credit at all.*
+
+
+
+
+Under put-call parity, options with the same expiration should imply roughly the same risk-free rate at every strike. Our plot is fairly flat at lower strikes, but both implied-rate curves fall after about $K=160$. The market interest rate itself is not changing with the strike. [Brenner and Galai (1986)](https://www.jstor.org/stable/2352715) give several reasons why option prices may not fit the simple parity formula exactly:
+
+1. **Early exercise of puts.** The formula in Problem 3 assumes European options. An American put can be exercised early and may therefore cost more. Higher strikes make puts more likely to be in the money. Putting a more expensive put into the European formula produces a lower implied rate (Brenner and Galai, pp. 495-496). If our Apple quotes are American-style, this is a strong explanation for the drop at high strikes.
+
+2. **Dividends.** A call owner does not receive dividends on the stock. If Apple was expected to pay a dividend before expiration, parity should subtract the present value of that dividend from the stock price. Our calculation did not do so, which can push the implied rates downward (pp. 496-499). This affects the overall level more than it explains a sudden change at one strike.  
+
+3. **Quotes recorded at different times.** Parity compares a stock, call, and put price available at the same moment. If those prices were recorded at different times while the stock moved, the calculated rate can be misleading. The paper identifies this timing problem as a source of unusually high or low implied rates (pp. 495, 503).
+
+4. **Bid-ask spreads and thin trading.** Our high and low curves use opposite sides of the bid-ask spread, so they form a range rather than two actual risk-free rates. The paper also notes that price increments and thinly traded, low-priced options can distort implied rates (pp. 495, 498-499). This may matter especially for the high-strike calls, whose prices can be small.
+
+5. **Borrowing and short-sale costs.** The textbook formula assumes investors can borrow and lend at the same rate and freely use short-sale proceeds. Brenner and Galai show that those assumptions did not hold in their market (pp. 493-495, 499-500). Trading costs can therefore allow a difference between the implied rate and a Treasury-bill rate to remain without creating an easy arbitrage profit.
+
+Overall, early exercise best matches the downward pattern at high strikes, *if* these are American-style options. The other factors help explain why the plotted rates vary and why the bid-ask range does not equal one exact risk-free rate.
